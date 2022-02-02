@@ -1,4 +1,7 @@
 # Linux ISG
+Форк https://github.com/vvfedorenko/lisg
+Тест на ядро 5.6-5.10+? (Пробовал на Debian 11.2)
+
 This repo is fork of Linux ISG project from Oleg A. Arkhangelsky.
 
 It is based on a non-original copy of source code recovered from old archive. Previously this code was published under GNU License so there is no problem to restore it in public.

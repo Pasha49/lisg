@@ -274,8 +274,12 @@ static struct sk_buff *isg_send_event(struct isg_net *isg_net, u_int16_t type,
 	int data_size = sizeof(struct isg_out_event);
 	int len = NLMSG_SPACE(data_size);
 
+	#if LINUX_VERSION_CODE < KERNEL_VERSION(5,6,0)
 	struct timespec ts_now;
-	ktime_get_ts(&ts_now);
+	#else
+	struct timespec64 ts_now;
+	#endif
+	ktime_get_ts64(&ts_now);
 
 	if (pid == 0) {
 		if (isg_net->listener_pid) {
@@ -511,9 +515,13 @@ static struct isg_session *__isg_create_session(struct isg_net *isg_net, u_int32
 	struct isg_session *is;
 	struct hlist_bl_head *h;
 	unsigned int port_number, shash;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,6,0)
 	struct timespec ts_now;
+#else
+	struct timespec64 ts_now;
+#endif
 
-	ktime_get_ts(&ts_now);
+	ktime_get_ts64(&ts_now);
 
 	is = kzalloc(sizeof(struct isg_session), GFP_ATOMIC);
 	if (!is) {
@@ -562,18 +570,22 @@ static struct isg_session *__isg_create_session(struct isg_net *isg_net, u_int32
 }
 
 static int __isg_start_session(struct isg_session *is) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,6,0)
 	struct timespec ts_now;
+#else
+	struct timespec64 ts_now;
+#endif
 
 	if (IS_SESSION_DYING(is))
 		return 0;
-	ktime_get_ts(&ts_now);
+	ktime_get_ts64(&ts_now);
 
 	isg_log("ipt_ISG: start session Virtual%d", is->info.port_number);
 
 	is->start_ktime = is->last_export = ts_now.tv_sec;
 
 	memset(is->stat, 0, 2*sizeof(struct isg_session_stat));
-	is->stat[ISG_DIR_IN].last_seen = timespec_to_ns(&ts_now);
+	is->stat[ISG_DIR_IN].last_seen = timespec64_to_ns(&ts_now);
 
 	if (IS_SERVICE(is)) {
 		set_bit(ISG_SERVICE_ONLINE, &is->info.flags);
@@ -768,7 +780,7 @@ static struct isg_session *isg_find_session(struct isg_net *isg_net, struct isg_
 
 	for (i = 0; i < nr_buckets; i++) {
 		hlist_bl_for_each_entry_safe(is, l, c, &isg_net->hash[i], list) {
-			if (__test_bit(ISG_IS_SERVICE, &ev->si.sinfo.flags) {
+			if (ev->si.sinfo.flags & ISG_IS_SERVICE) {
 				/* Searching for sub-session (service) */
 				if (!hlist_empty(&is->srv_head)) {
 					struct isg_session *isrv;
@@ -872,13 +884,18 @@ static void isg_session_timeout(unsigned long arg) {
 static void isg_session_timeout(struct timer_list *arg) {
 	struct isg_session *is = from_timer(is, arg, timer);
 #endif
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,6,0)
 	struct timespec ts_now;
 	struct timespec ts_ls;
+#else
+	struct timespec64 ts_now;
+	struct timespec64 ts_ls;
+#endif
 	struct isg_session *isrv;
 	struct hlist_node *l;
 	u_int32_t stat_duration;
 
-	ktime_get_ts(&ts_now);
+	ktime_get_ts64(&ts_now);
 
 	if (module_exiting) {
 		return;
@@ -900,7 +917,7 @@ static void isg_session_timeout(struct timer_list *arg) {
 	stat_duration = ts_now.tv_sec - is->start_ktime;
 
 	if (IS_SERVICE_ONLINE(is)) {
-		ts_ls = ns_to_timespec(is->stat[ISG_DIR_IN].last_seen);
+		ts_ls = ns_to_timespec64(is->stat[ISG_DIR_IN].last_seen);
 
 		/* Check maximum session duration and idle timeout */
 		if ((is->info.max_duration && stat_duration >= is->info.max_duration) ||
@@ -934,7 +951,7 @@ static void isg_session_timeout(struct timer_list *arg) {
 				}
 			}
 
-			ts_ls = ns_to_timespec(is->stat[ISG_DIR_IN].last_seen);
+			ts_ls = ns_to_timespec64(is->stat[ISG_DIR_IN].last_seen);
 			spin_unlock_bh(&is->lock);
 
 			/* Check maximum session duration and idle timeout */
@@ -1047,15 +1064,19 @@ isg_tg(struct sk_buff *skb,
 	unsigned int action;
 
 	u_int32_t pkt_len, pkt_len_bits, rate, burst;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,6,0)
 	struct timespec ts_now;
+#else
+	struct timespec64 ts_now;
+#endif
 	u_int64_t now;
 
 	iph = ip_hdr(skb);
 
 	pkt_len = ntohs(iph->tot_len);
 
-	ktime_get_ts(&ts_now);
-	now = timespec_to_ns(&ts_now);
+	ktime_get_ts64(&ts_now);
+	now = timespec64_to_ns(&ts_now);
 
 	pkt_len_bits = pkt_len << 3;
 

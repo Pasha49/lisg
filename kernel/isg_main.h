@@ -120,8 +120,8 @@ struct isg_session {
 	struct isg_session_stat stat[2]; /* replace with array for every direction */
 
 	spinlock_t lock;
-	time_t start_ktime;
-	time_t last_export;
+	time64_t start_ktime;
+	time64_t last_export;
 
 	struct timer_list timer;
 
